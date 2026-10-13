@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --blue: #0a66c2; --border: #d0d7de; --muted: #57606a; --bg: #fff; --fg: #1f2328; }
+  @media (prefers-color-scheme: dark) { :root { --border: #3d444d; --muted: #9198a1; --bg: #1f2328; --fg: #e6edf3; } }
+  body { width: 380px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  h1 { font-size: 15px; margin: 0 0 10px; }
+  label { display: block; font-weight: 600; margin: 10px 0 4px; }
+  textarea { width: 100%; box-sizing: border-box; height: 110px; font: 12px ui-monospace, monospace; padding: 6px;
+             border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  input[type=number] { width: 100%; box-sizing: border-box; padding: 5px; border: 1px solid var(--border); border-radius: 6px;
+                       background: var(--bg); color: var(--fg); }
+  .hint { color: var(--muted); font-size: 11px; font-weight: 400; }
+  .buttons { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  button { padding: 7px 12px; border-radius: 16px; border: 1px solid var(--blue); background: var(--bg); color: var(--blue);
+           font-weight: 600; cursor: pointer; }
+  button.primary { background: var(--blue); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  #status { margin-top: 12px; font-weight: 600; }
+  progress { width: 100%; height: 8px; }
+  #log { max-height: 110px; overflow: auto; font: 11px ui-monospace, monospace; color: var(--muted); white-space: pre-wrap;
+         border-top: 1px solid var(--border); margin-top: 8px; padding-top: 6px; }
+  #error { color: #cf222e; }
+</style>
+</head>
+<body>
+  <h1>LinkedIn Post Collector</h1>
+
+  <label for="urls">Profiles and company pages <span class="hint">one URL per line</span></label>
+  <textarea id="urls" placeholder="https://www.linkedin.com/in/someone/&#10;https://www.linkedin.com/company/european-commission/"></textarea>
+
+  <div class="row">
+    <div><label for="maxPosts">Posts per profile</label><input id="maxPosts" type="number" min="1" max="200" value="20"></div>
+    <div><label for="sinceDays">Last N days <span class="hint">0 = all</span></label><input id="sinceDays" type="number" min="0" value="30"></div>
+  </div>
+
+  <div class="buttons">
+    <button id="start" class="primary">Collect from list</button>
+    <button id="current">This page only</button>
+    <button id="stop" disabled>Stop</button>
+  </div>
+
+  <div id="status"></div>
+  <progress id="progress" value="0" max="1" hidden></progress>
+  <div id="error"></div>
+
+  <div class="buttons">
+    <button id="csv" disabled>Download CSV</button>
+    <button id="json" disabled>Download JSON</button>
+  </div>
+
+  <div id="log"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

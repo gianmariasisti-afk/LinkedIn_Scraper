@@ -4,7 +4,26 @@ Collects recent posts from a list of LinkedIn profiles and company pages and sav
 
 For each post you get: author, post URL, exact publish time (UTC), text, reactions, comments, reposts, whether it is a repost, and outbound links.
 
-## Setup
+## Option A: Chrome extension (easiest)
+
+No installs. Works inside the Chrome you are already logged into.
+
+1. Download this repo (green **Code** button → **Download ZIP**) and unzip it.
+2. In Chrome, open `chrome://extensions`, switch on **Developer mode** (top right), click **Load unpacked**, and pick the `chrome-extension` folder.
+3. Pin the extension (puzzle icon in the toolbar → pin **LinkedIn Post Collector**).
+4. Make sure you are logged in to LinkedIn, click the extension icon, paste your profile/company URLs, and press **Collect from list**.
+5. A second Chrome window opens and works through the list on its own (8–20 s pause between profiles). Leave it open; you can keep working in your main window. The popup can be closed and reopened to check progress.
+6. When it says **Done**, click **Download CSV** (opens in Excel) or **Download JSON**.
+
+**This page only** collects posts from the profile or company page open in your current tab.
+
+If a profile returns 0 posts, LinkedIn has probably changed its page layout: the selectors to update are at the top of `chrome-extension/extract.js`.
+
+## Option B: Python command line
+
+For scheduled runs or servers. Same output, more setup.
+
+### Setup
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -12,7 +31,7 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-## 1. Log in once
+### 1. Log in once
 
 ```bash
 python -m linkedin_scraper login
@@ -20,7 +39,7 @@ python -m linkedin_scraper login
 
 A browser window opens. Log in by hand (2FA works). When your feed loads, the session is saved to `auth.json`. That file is your login: keep it private. It is git-ignored.
 
-### No browser window available (servers, cloud sessions)
+#### No browser window available (servers, cloud sessions)
 
 Log in to LinkedIn in your normal browser, open DevTools → Application → Cookies → `https://www.linkedin.com`, and copy the value of `li_at`. Set it as an environment variable (or an environment secret):
 
@@ -30,7 +49,7 @@ export LINKEDIN_LI_AT='AQEDAR...'
 
 When `auth.json` is missing, `scrape` builds it from this cookie. Treat the value like a password: anyone holding it is logged in as you. Logging out of LinkedIn invalidates it.
 
-## 2. Scrape
+### 2. Scrape
 
 Put one URL per line in a file (see `profiles.example.txt`; a CSV with the URL in the first column also works):
 
