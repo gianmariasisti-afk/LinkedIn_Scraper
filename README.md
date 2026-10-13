@@ -20,6 +20,16 @@ python -m linkedin_scraper login
 
 A browser window opens. Log in by hand (2FA works). When your feed loads, the session is saved to `auth.json`. That file is your login: keep it private. It is git-ignored.
 
+### No browser window available (servers, cloud sessions)
+
+Log in to LinkedIn in your normal browser, open DevTools → Application → Cookies → `https://www.linkedin.com`, and copy the value of `li_at`. Set it as an environment variable (or an environment secret):
+
+```bash
+export LINKEDIN_LI_AT='AQEDAR...'
+```
+
+When `auth.json` is missing, `scrape` builds it from this cookie. Treat the value like a password: anyone holding it is logged in as you. Logging out of LinkedIn invalidates it.
+
 ## 2. Scrape
 
 Put one URL per line in a file (see `profiles.example.txt`; a CSV with the URL in the first column also works):

@@ -121,6 +121,25 @@ def login(pw: Playwright, auth_path: str, timeout_s: int = 300) -> None:
     print(f"Session saved to {auth_path}. Keep this file private: it is your LinkedIn login.")
 
 
+def save_cookie_session(auth_path: str, li_at: str) -> None:
+    """Build a session file from the `li_at` cookie, for machines where no browser window can open."""
+    import json
+
+    state = {
+        "cookies": [{
+            "name": "li_at", "value": li_at.strip().strip('"'), "domain": ".linkedin.com", "path": "/",
+            "expires": -1, "httpOnly": True, "secure": True, "sameSite": "None",
+        }],
+        "origins": [],
+    }
+    with open(auth_path, "w", encoding="utf-8") as fh:
+        json.dump(state, fh)
+    try:
+        os.chmod(auth_path, 0o600)
+    except OSError:
+        pass
+
+
 def _check_logged_in(page: Page) -> None:
     url = page.url
     if any(p in url for p in ("/login", "/authwall", "/checkpoint", "/uas/")):
@@ -192,6 +211,8 @@ def scrape(
     headless: bool = True,
     delay: tuple[float, float] = (8.0, 20.0),
 ) -> list[Post]:
+    if not os.path.exists(auth_path) and os.environ.get("LINKEDIN_LI_AT"):
+        save_cookie_session(auth_path, os.environ["LINKEDIN_LI_AT"])
     if not os.path.exists(auth_path):
         raise SystemExit(f"No session at {auth_path}. Run `python -m linkedin_scraper login` first.")
     browser = _launch(pw, headless=headless)
