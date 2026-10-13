@@ -161,7 +161,7 @@ def test_full_run_through_popup(tmp_path):
         csv_text = Path(dl.value.path()).read_text(encoding="utf-8-sig")
         ctx.close()
 
-    assert "2/2 profiles · 4 posts" in status, (status, log)
+    assert "2/2 profiles · 4 posts" in status, log
     assert "scroll 1" in log
     assert csv_text.splitlines()[0].startswith("source,post_url,posted_at")
     assert "Digital sovereignty" in csv_text and "AI Act" in csv_text

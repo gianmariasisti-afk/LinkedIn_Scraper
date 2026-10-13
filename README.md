@@ -12,7 +12,7 @@ No installs. Works inside the Chrome you are already logged into.
 2. In Chrome, open `chrome://extensions`, switch on **Developer mode** (top right), click **Load unpacked**, and pick the `chrome-extension` folder.
 3. Pin the extension (puzzle icon in the toolbar → pin **LinkedIn Post Collector**).
 4. Make sure you are logged in to LinkedIn, click the extension icon, paste your profile/company URLs, and press **Collect from list**.
-5. A second Chrome window opens in front and works through the list on its own (8–20 s pause between profiles). Leave it visible: Chrome pauses pages in hidden or fully covered windows, especially on macOS. Put it side by side with your main window if you want to keep working. The popup can be closed and reopened to check progress.
+5. A new tab opens in your window and works through the list on its own (8–20 s pause between profiles). Stay on that tab while it runs: LinkedIn only loads posts in the tab you are looking at. The popup can be closed and reopened to check progress; the tab closes itself when done.
 6. When it says **Done**, click **Download CSV** (opens in Excel) or **Download JSON**.
 
 **This page only** collects posts from the profile or company page open in your current tab.

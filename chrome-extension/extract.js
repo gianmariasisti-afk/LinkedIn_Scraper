@@ -209,8 +209,12 @@
     if (/\/(login|authwall|checkpoint|uas)\//.test(location.href)) {
       return { error: "Not logged in to LinkedIn (or a security check is showing). Log in and try again." };
     }
-    // Wait up to 20s for the first post to render.
-    for (let i = 0; i < 40 && !findCards().cards.length; i++) await sleep(500);
+    // Wait up to 30s for the first post to render, nudging the page now and then: some layouts only
+    // load the feed once the page has been scrolled.
+    for (let i = 0; i < 60 && !findCards().cards.length; i++) {
+      if (i % 10 === 9) { window.scrollBy(0, 600); await sleep(300); window.scrollBy(0, -600); }
+      await sleep(500);
+    }
 
     const posts = new Map();
     let stale = 0;
@@ -238,7 +242,12 @@
     if (sinceIso) result = result.filter((p) => p.posted_at >= sinceIso);
     if (!posts.size) {
       const p = window.__liProbe();
-      return { posts: [], warning: `No posts recognised (${p.postIdsOnPage} post IDs on page, ${p.cardsFound} cards). Use "Diagnose this page".` };
+      return {
+        posts: [],
+        warning: `No posts recognised (${p.postIdsOnPage} post IDs, ${p.cardsFound} cards; ` +
+          `tab ${document.visibilityState}, page "${document.title.slice(0, 60)}", ${location.pathname}). ` +
+          `Use "Diagnose this page" on that tab.`,
+      };
     }
     return { posts: result.slice(0, maxPosts) };
   };

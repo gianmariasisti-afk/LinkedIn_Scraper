@@ -91,10 +91,10 @@ async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
     return;
   }
 
-  // A separate window in front: Chrome (especially on macOS) pauses pages in hidden or covered
-  // windows, so posts never load. The user can keep working in another window on the side.
-  const win = await chrome.windows.create({ url: "about:blank", focused: true, width: 1100, height: 900 });
-  const tabId = win.tabs[0].id;
+  // A normal tab in the user's current window, brought to the front for each profile. LinkedIn did not
+  // render posts in a separate extension-opened window, while the same page in a regular tab worked.
+  const tab = await chrome.tabs.create({ url: "about:blank", active: true });
+  const tabId = tab.id;
   let all = [];
   try {
     for (let i = 0; i < targets.length; i++) {
@@ -103,8 +103,10 @@ async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
       await setJob({ current: t.page });
       await log(`[${i + 1}/${targets.length}] ${t.page}`);
       try {
-        await chrome.tabs.update(tabId, { url: t.activity });
-        await waitForLoad(tabId);
+        const loaded = waitForLoad(tabId);
+        const current = await chrome.tabs.update(tabId, { url: t.activity, active: true });
+        await loaded;
+        await chrome.windows.update(current.windowId, { focused: true });
         const res = await collectFromTab(tabId, { source: t.page, maxPosts, sinceIso });
         if (res.warning) await log(`  ${res.warning}`);
         if (res.error) {
@@ -123,7 +125,7 @@ async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
   } finally {
     clearInterval(keepAlive);
     running = false;
-    try { await chrome.windows.remove(win.id); } catch {}
+    try { await chrome.tabs.remove(tabId); } catch {}
     const job = await setJob({}); // waits for queued writes, returns the latest job
     if (job.status === "running") await setJob({ status: stopRequested ? "stopped" : "done", current: null });
     await log(`Finished: ${all.length} posts.`);
@@ -138,8 +140,9 @@ async function runCurrentTab({ tabId, url, maxPosts, sinceDays }) {
   try {
     // Profile pages show a short preview; posts live on the activity page.
     if (t && !/recent-activity|\/posts/.test(url)) {
+      const loaded = waitForLoad(tabId);
       await chrome.tabs.update(tabId, { url: t.activity });
-      await waitForLoad(tabId);
+      await loaded;
     }
     const res = await collectFromTab(tabId, { source: t ? t.page : url, maxPosts, sinceIso });
     if (res.error) return void (await setJob({ status: "error", error: res.error }));
