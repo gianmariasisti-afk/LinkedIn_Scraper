@@ -23,17 +23,22 @@ const jitter = (lo, hi) => lo + Math.random() * (hi - lo);
 let stopRequested = false;
 let running = false;
 
-async function setJob(patch) {
-  const { job = {} } = await chrome.storage.local.get("job");
-  const next = { ...job, ...patch };
-  await chrome.storage.local.set({ job: next });
-  return next;
+// All job writes go through one queue so progress lines and results never overwrite each other.
+let writes = Promise.resolve();
+function setJob(patch) {
+  writes = writes.then(async () => {
+    const { job = {} } = await chrome.storage.local.get("job");
+    const next = { ...job, ...(typeof patch === "function" ? patch(job) : patch) };
+    await chrome.storage.local.set({ job: next });
+    return next;
+  });
+  return writes;
 }
 
-async function log(line) {
-  const { job = {} } = await chrome.storage.local.get("job");
-  const lines = [...(job.log || []), `${new Date().toLocaleTimeString()}  ${line}`].slice(-200);
-  await setJob({ log: lines });
+function log(line) {
+  return setJob((job) => ({
+    log: [...(job.log || []), `${new Date().toLocaleTimeString()}  ${line}`].slice(-200),
+  }));
 }
 
 function waitForLoad(tabId, timeoutMs = 30000) {
@@ -47,12 +52,22 @@ function waitForLoad(tabId, timeoutMs = 30000) {
 
 async function collectFromTab(tabId, opts) {
   await chrome.scripting.executeScript({ target: { tabId }, files: ["extract.js"] });
-  const [{ result }] = await chrome.scripting.executeScript({
+  const run = chrome.scripting.executeScript({
     target: { tabId },
     func: (o) => window.__liCollect(o),
     args: [opts],
   });
+  // A page that never finishes (stuck spinner, hidden window) should not hang the whole list.
+  const timeout = new Promise((resolve) =>
+    setTimeout(() => resolve([{ result: { error: "Timed out after 4 minutes on this page" } }]), 240000));
+  const [{ result }] = await Promise.race([run, timeout]);
   return result || { error: "No result from page" };
+}
+
+async function probeTab(tabId) {
+  await chrome.scripting.executeScript({ target: { tabId }, files: ["extract.js"] });
+  const [{ result }] = await chrome.scripting.executeScript({ target: { tabId }, func: () => window.__liProbe() });
+  return result;
 }
 
 async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
@@ -69,17 +84,16 @@ async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
     if (t && !seen.has(t.page)) { seen.add(t.page); targets.push(t); }
   }
   const sinceIso = sinceDays > 0 ? new Date(Date.now() - sinceDays * 864e5).toISOString() : null;
-  await chrome.storage.local.set({
-    job: { status: "running", total: targets.length, done: 0, posts: [], log: [], startedAt: Date.now() },
-  });
+  await setJob(() => ({ status: "running", total: targets.length, done: 0, posts: [], log: [], error: null, startedAt: Date.now() }));
   if (!targets.length) {
     await setJob({ status: "error", error: "No LinkedIn profile or company URLs found." });
     running = false; clearInterval(keepAlive);
     return;
   }
 
-  // A separate, unfocused window: visible pages render and lazy-load, hidden tabs often do not.
-  const win = await chrome.windows.create({ url: "about:blank", focused: false, width: 1200, height: 900 });
+  // A separate window in front: Chrome (especially on macOS) pauses pages in hidden or covered
+  // windows, so posts never load. The user can keep working in another window on the side.
+  const win = await chrome.windows.create({ url: "about:blank", focused: true, width: 1100, height: 900 });
   const tabId = win.tabs[0].id;
   let all = [];
   try {
@@ -92,6 +106,7 @@ async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
         await chrome.tabs.update(tabId, { url: t.activity });
         await waitForLoad(tabId);
         const res = await collectFromTab(tabId, { source: t.page, maxPosts, sinceIso });
+        if (res.warning) await log(`  ${res.warning}`);
         if (res.error) {
           await log(`  ${res.error}`);
           if (/Not logged in/.test(res.error)) { await setJob({ status: "error", error: res.error }); break; }
@@ -109,7 +124,7 @@ async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
     clearInterval(keepAlive);
     running = false;
     try { await chrome.windows.remove(win.id); } catch {}
-    const { job } = await chrome.storage.local.get("job");
+    const job = await setJob({}); // waits for queued writes, returns the latest job
     if (job.status === "running") await setJob({ status: stopRequested ? "stopped" : "done", current: null });
     await log(`Finished: ${all.length} posts.`);
   }
@@ -118,9 +133,8 @@ async function runList({ urls, maxPosts, sinceDays, delayMin, delayMax }) {
 async function runCurrentTab({ tabId, url, maxPosts, sinceDays }) {
   const t = parseTarget(url);
   const sinceIso = sinceDays > 0 ? new Date(Date.now() - sinceDays * 864e5).toISOString() : null;
-  await chrome.storage.local.set({
-    job: { status: "running", total: 1, done: 0, posts: [], log: [`Collecting from ${url}`], current: url },
-  });
+  await setJob(() => ({ status: "running", total: 1, done: 0, posts: [], log: [], error: null, current: url }));
+  await log(`Collecting from ${url}`);
   try {
     // Profile pages show a short preview; posts live on the activity page.
     if (t && !/recent-activity|\/posts/.test(url)) {
@@ -129,6 +143,7 @@ async function runCurrentTab({ tabId, url, maxPosts, sinceDays }) {
     }
     const res = await collectFromTab(tabId, { source: t ? t.page : url, maxPosts, sinceIso });
     if (res.error) return void (await setJob({ status: "error", error: res.error }));
+    if (res.warning) await log(res.warning);
     await setJob({ status: "done", done: 1, posts: res.posts, current: null });
     await log(`Finished: ${res.posts.length} posts.`);
   } catch (e) {
@@ -137,6 +152,11 @@ async function runCurrentTab({ tabId, url, maxPosts, sinceDays }) {
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg.type === "probe") {
+    probeTab(msg.tabId).then(reply, (e) => reply({ error: e.message }));
+    return true; // reply arrives asynchronously
+  }
+  if (msg.type === "progress") { log(msg.msg); return; }
   if (msg.type === "start") runList(msg);
   else if (msg.type === "current") runCurrentTab(msg);
   else if (msg.type === "stop") stopRequested = true;

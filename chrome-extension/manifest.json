@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Post Collector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Collect recent posts from a list of LinkedIn profiles and company pages and export them to CSV or JSON.",
   "permissions": ["scripting", "storage"],
   "host_permissions": ["https://www.linkedin.com/*"],

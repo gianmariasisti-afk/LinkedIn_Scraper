@@ -75,6 +75,23 @@ $("current").onclick = async () => {
   chrome.runtime.sendMessage({ type: "current", tabId: tab.id, url: tab.url, maxPosts: s.maxPosts, sinceDays: s.sinceDays });
 };
 
+$("diagnose").onclick = async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.url || !tab.url.startsWith("https://www.linkedin.com/")) {
+    $("diag").textContent = "Open the LinkedIn page that returned 0 posts, scroll a little, then click Diagnose.";
+    return;
+  }
+  $("diag").textContent = "Checking…";
+  const r = await chrome.runtime.sendMessage({ type: "probe", tabId: tab.id });
+  if (!r || r.error) { $("diag").textContent = `Could not read the page: ${r ? r.error : "no answer"}`; return; }
+  $("diag").textContent =
+    `${r.postIdsOnPage} post IDs on page · ${r.cardsFound} post blocks (${r.mode}) · ${r.postsParsed} posts read. ` +
+    (r.postsParsed ? "Reading works on this page." : "A file was downloaded: send it to whoever maintains this extension.");
+  if (!r.postsParsed) {
+    download(`linkedin-diagnostic-${stamp()}.json`, JSON.stringify(r, null, 2), "application/json");
+  }
+};
+
 $("stop").onclick = () => chrome.runtime.sendMessage({ type: "stop" });
 
 $("csv").onclick = () => {

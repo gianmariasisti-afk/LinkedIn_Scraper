@@ -1,0 +1,40 @@
+<!doctype html>
+<html><body>
+<main>
+  <div class="a1b2c3">
+    <!-- Post 1: ID only in the timestamp link, obfuscated classes, text in data-testid -->
+    <div class="x9y8z7" componentkey="feed-item-1">
+      <div class="q1">
+        <a href="https://www.linkedin.com/in/cecilia-example/?miniProfileUrn=1"><span aria-hidden="true">Cecilia Example</span><span class="sr">Cecilia Example</span></a>
+        <a href="https://www.linkedin.com/feed/update/urn:li:activity:7400000000000000000/"><span>3d</span></a>
+      </div>
+      <span data-testid="expandable-text-box">Digital sovereignty is now a competitiveness question. Full speech: <a href="https://example.eu/speech">example.eu/speech</a></span>
+      <div class="q2">
+        <button aria-label="1,234 reactions"><span>1,234</span></button>
+        <button aria-label="56 comments on Cecilia Example’s post"><span>56 comments</span></button>
+        <span>7 reposts</span>
+      </div>
+      <div class="q3">
+        <button aria-label="React Like">Like</button>
+        <button aria-label="Comment">Comment</button>
+        <button aria-label="Repost">Repost</button>
+        <button aria-label="Send in a private message">Send</button>
+      </div>
+    </div>
+    <!-- Post 2: repost, ID in an attribute URL-encoded, nested original with its own ID -->
+    <div class="x9y8z7" data-view-tracking-scope="urn%3Ali%3Aactivity%3A7399000000000000000">
+      <div class="q0">Cecilia Example reposted this</div>
+      <a href="https://www.linkedin.com/company/digitaleurope/"><span aria-hidden="true">DIGITALEUROPE</span></a>
+      <div class="inner"><a href="https://www.linkedin.com/feed/update/urn:li:ugcPost:7398000000000000000/">original</a>
+        <p dir="ltr">Our position paper on the Digital Omnibus is out.</p></div>
+      <div class="q2"><span>2.5K</span><span>12 comments</span></div>
+      <div class="q3">
+        <button aria-label="React Like">Like</button>
+        <button aria-label="Comment">Comment</button>
+      </div>
+    </div>
+    <!-- Not a post: no action bar -->
+    <div><a href="https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000000/">sidebar link</a></div>
+  </div>
+</main>
+</body></html>

@@ -12,12 +12,12 @@ No installs. Works inside the Chrome you are already logged into.
 2. In Chrome, open `chrome://extensions`, switch on **Developer mode** (top right), click **Load unpacked**, and pick the `chrome-extension` folder.
 3. Pin the extension (puzzle icon in the toolbar → pin **LinkedIn Post Collector**).
 4. Make sure you are logged in to LinkedIn, click the extension icon, paste your profile/company URLs, and press **Collect from list**.
-5. A second Chrome window opens and works through the list on its own (8–20 s pause between profiles). Leave it open; you can keep working in your main window. The popup can be closed and reopened to check progress.
+5. A second Chrome window opens in front and works through the list on its own (8–20 s pause between profiles). Leave it visible: Chrome pauses pages in hidden or fully covered windows, especially on macOS. Put it side by side with your main window if you want to keep working. The popup can be closed and reopened to check progress.
 6. When it says **Done**, click **Download CSV** (opens in Excel) or **Download JSON**.
 
 **This page only** collects posts from the profile or company page open in your current tab.
 
-If a profile returns 0 posts, LinkedIn has probably changed its page layout: the selectors to update are at the top of `chrome-extension/extract.js`.
+**If a profile returns 0 posts:** open that profile's activity page in a normal tab, scroll a little, open the extension and click **Diagnose this page**. It reports how many posts it can see and, if it reads none, downloads a small diagnostic file describing the page layout. That file is what's needed to adapt the extension to LinkedIn's current layout (the code is `chrome-extension/extract.js`).
 
 ## Option B: Python command line
 
@@ -81,7 +81,7 @@ Results land in `output/posts-YYYYMMDD-HHMMSS.csv` and `.json`. The CSV opens cl
 
 - Visits `/in/<name>/recent-activity/all/` for people and `/company/<name>/posts/` for organisations, scrolls, and reads each post card.
 - The publish time comes from the post ID itself (LinkedIn IDs embed a millisecond timestamp), so it is exact, not "2d ago".
-- All CSS selectors live in `SELECTORS` at the top of `linkedin_scraper/scraper.py`. LinkedIn changes its markup every few months; when the scraper starts returning zero posts, that dict is what to update.
+- The page-reading code is `chrome-extension/extract.js`, shared by the extension and the Python version. It first tries LinkedIn's known class names, then falls back to a layout-independent method: any element carrying a post ID, widened to the block that holds its Like/Comment bar.
 
 ## Limits and risk
 

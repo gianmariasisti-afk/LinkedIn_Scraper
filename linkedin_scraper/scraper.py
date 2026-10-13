@@ -7,76 +7,16 @@ import os
 import random
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from playwright.sync_api import BrowserContext, Page, Playwright, TimeoutError as PWTimeout
 
-from .parsing import Post, Target, build_post
+from .parsing import Post, Target
 
 log = logging.getLogger(__name__)
 
-# LinkedIn changes its markup regularly. When the scraper stops finding posts,
-# this is the one place to update. Each entry is a CSS selector list tried in order.
-SELECTORS = {
-    "post": "div.feed-shared-update-v2[data-urn], div[data-urn^='urn:li:activity:']",
-    "text": ".update-components-text, .feed-shared-inline-show-more-text, .feed-shared-update-v2__description",
-    "author": ".update-components-actor__title, .update-components-actor__name",
-    "author_link": "a.update-components-actor__meta-link, a.update-components-actor__image",
-    "date": ".update-components-actor__sub-description",
-    "header": ".update-components-header",
-    "reactions": ".social-details-social-counts__reactions-count, .social-details-social-counts__social-proof-fallback-number",
-    "comments": ".social-details-social-counts__comments",
-    "reposts": ".social-details-social-counts__item--right-aligned:not(.social-details-social-counts__comments), button[aria-label*='repost']",
-}
-
-# Runs inside the page. Returns plain dicts so the parsing stays in Python and is testable.
-_EXTRACT_JS = """
-(sel) => {
-  const pick = (root, s) => {
-    for (const part of s.split(',')) {
-      const el = root.querySelector(part.trim());
-      if (el) return el;
-    }
-    return null;
-  };
-  const txt = (el) => el ? (el.innerText || el.textContent || '').trim() : '';
-  // Names are rendered twice: an aria-hidden visible copy and a visually-hidden one for screen readers.
-  const visible = (el) => el ? txt(el.querySelector('[aria-hidden="true"]') || el) : '';
-  const seen = new Set();
-  const out = [];
-  for (const card of document.querySelectorAll(sel.post)) {
-    const urn = card.getAttribute('data-urn') || '';
-    // Nested cards (e.g. the original inside a repost) share ancestors; keep the outermost.
-    if (!urn || seen.has(urn) || card.parentElement?.closest('[data-urn^="urn:li:activity:"]')) continue;
-    seen.add(urn);
-    const textEl = pick(card, sel.text);
-    const authorLink = pick(card, sel.author_link);
-    const commentsEl = pick(card, sel.comments);
-    let repostsText = '';
-    for (const part of sel.reposts.split(',')) {
-      for (const el of card.querySelectorAll(part.trim())) {
-        const t = txt(el) || el.getAttribute('aria-label') || '';
-        if (/repost/i.test(t)) { repostsText = t; break; }
-      }
-      if (repostsText) break;
-    }
-    out.push({
-      urn,
-      text: textEl ? (textEl.textContent || '') : '',
-      author: visible(pick(card, sel.author)),
-      authorUrl: authorLink ? authorLink.href : '',
-      date: txt(pick(card, sel.date)),
-      header: txt(pick(card, sel.header)),
-      reactions: txt(pick(card, sel.reactions)),
-      comments: txt(commentsEl) || (commentsEl && commentsEl.getAttribute('aria-label')) || '',
-      reposts: repostsText,
-      links: textEl ? [...textEl.querySelectorAll('a[href]')]
-        .map(a => a.href)
-        .filter(h => !h.includes('/feed/hashtag/') && !h.includes('linkedin.com/in/')) : [],
-    });
-  }
-  return out;
-}
-"""
+# The page-reading code is shared with the Chrome extension, so a fix to LinkedIn's layout lands in both.
+EXTRACT_JS_PATH = Path(__file__).resolve().parent.parent / "chrome-extension" / "extract.js"
 
 LOGIN_URL = "https://www.linkedin.com/login"
 FEED_URL = "https://www.linkedin.com/feed/"
@@ -163,43 +103,21 @@ def scrape_target(
     log.info("Opening %s", target.activity_url)
     page.goto(target.activity_url, wait_until="domcontentloaded")
     _check_logged_in(page)
-    try:
-        page.wait_for_selector(SELECTORS["post"].split(",")[0], timeout=15000)
-    except PWTimeout:
-        log.warning("No posts found for %s (no activity, private, or selectors out of date)", target.page_url)
-        return []
-
-    posts: dict[str, Post] = {}
-    stale_rounds = 0
-    for _ in range(max_scrolls):
-        before = len(posts)
-        for raw in page.evaluate(_EXTRACT_JS, SELECTORS):
-            post = build_post(raw, target)
-            if post and post.urn not in posts:
-                posts[post.urn] = post
-
-        ordered = sorted(posts.values(), key=lambda p: p.posted_at, reverse=True)
-        if len(posts) >= max_posts:
-            break
-        # Pinned posts can be old, so judge by the oldest post loaded, not the first.
-        if since and ordered and ordered[-1].posted_at and ordered[-1].posted_at < since.isoformat():
-            break
-        stale_rounds = stale_rounds + 1 if len(posts) == before else 0
-        if stale_rounds >= 3:
-            break
-
-        page.mouse.wheel(0, random.randint(2500, 4000))
-        _pause(1.5, 3.5)
-        # Company pages and long feeds use a "Show more results" button instead of infinite scroll.
-        more = page.locator("button.scaffold-finite-scroll__load-button")
-        if more.count() and more.first.is_visible():
-            more.first.click()
-            _pause(1.5, 3.0)
-
-    result = sorted(posts.values(), key=lambda p: p.posted_at, reverse=True)
-    if since:
-        result = [p for p in result if p.posted_at and p.posted_at >= since.isoformat()]
-    return result[:max_posts]
+    page.add_script_tag(path=str(EXTRACT_JS_PATH))
+    res = page.evaluate(
+        "(o) => window.__liCollect(o)",
+        {
+            "source": target.page_url,
+            "maxPosts": max_posts,
+            "sinceIso": since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z") if since else None,
+            "maxScrolls": max_scrolls,
+        },
+    )
+    if res.get("error"):
+        raise SystemExit(f"{res['error']} Run `python -m linkedin_scraper login` again.")
+    if res.get("warning"):
+        log.warning("%s: %s", target.page_url, res["warning"])
+    return [Post(**p) for p in res["posts"]]
 
 
 def scrape(
@@ -238,7 +156,3 @@ def scrape(
     finally:
         browser.close()
     return all_posts
-
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
