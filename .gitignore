@@ -1,0 +1,9 @@
+# Session cookies: never commit
+auth.json
+*.auth.json
+
+output/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

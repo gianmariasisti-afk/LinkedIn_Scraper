@@ -1,0 +1,36 @@
+<!doctype html>
+<html><body>
+<div class="scaffold-finite-scroll__content">
+  <!-- Original post -->
+  <div class="feed-shared-update-v2" data-urn="urn:li:activity:7250000000000000000">
+    <div class="update-components-actor">
+      <a class="update-components-actor__meta-link" href="https://www.linkedin.com/in/jane-doe?miniProfileUrn=x">
+        <span class="update-components-actor__title"><span dir="ltr"><span aria-hidden="true">Jane Doe</span><span class="visually-hidden">Jane Doe</span></span></span>
+      </a>
+      <span class="update-components-actor__sub-description">2d • Edited • </span>
+    </div>
+    <div class="feed-shared-inline-show-more-text">
+      <span class="update-components-text">The AI Act enters a new phase.&nbsp;Read our analysis:
+        <a href="https://example.eu/ai-act">example.eu/ai-act</a>
+        <a href="https://www.linkedin.com/feed/hashtag/?keywords=aiact">#AIAct</a></span>
+    </div>
+    <div class="social-details-social-counts">
+      <span class="social-details-social-counts__reactions-count">1,234</span>
+      <button class="social-details-social-counts__comments" aria-label="56 comments"><span>56 comments</span></button>
+      <button class="social-details-social-counts__item--right-aligned" aria-label="7 reposts"><span>7 reposts</span></button>
+    </div>
+  </div>
+  <!-- Repost containing a nested original -->
+  <div class="feed-shared-update-v2" data-urn="urn:li:activity:7249000000000000000">
+    <div class="update-components-header">Jane Doe reposted this</div>
+    <span class="update-components-actor__title">European Commission</span>
+    <a class="update-components-actor__meta-link" href="https://www.linkedin.com/company/european-commission/posts"></a>
+    <span class="update-components-actor__sub-description">1w •</span>
+    <div class="update-components-text">Consultation now open.</div>
+    <div data-urn="urn:li:activity:7248000000000000000">nested original</div>
+    <span class="social-details-social-counts__reactions-count">2.5K</span>
+  </div>
+  <!-- Not a post -->
+  <div data-urn="urn:li:fsd_profile:ABC">ignore me</div>
+</div>
+</body></html>
